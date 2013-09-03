@@ -1,0 +1,171 @@
+#include<fstream>
+#include<iostream>
+#include<string>
+#include<stdlib.h>
+#include<unistd.h>
+using namespace std;
+
+template<class T> string m_to_string(T tmp) {
+    stringstream ss;
+    ss << tmp;
+    return ss.str();
+}
+
+class sms {
+private:
+    string from;    //发件人
+    string to;      //收件人
+    string time;    //发送时间
+    string text;    //短信内容，长度小于等于70
+    bool unread;    //是否未读
+    int status;     //发送状态，0表示成功，初始化为-1
+    int id;         //编号，初始化为-1
+    bool isend;     //是否为结尾
+    string end_of_sms;  //写入文件中的text结尾标识符
+
+public:
+    sms() {
+        from = "-1";
+        to = "-1";
+        time = get_system_time();
+        text = "";
+        unread = false;
+        status = -1;
+        id = -1;
+        isend = true;
+        end_of_sms = "%+*-/%";
+    };
+
+    sms(string _from, string _to, string _text, bool _isend): from(_from), to(_to), text(_text), isend(_isend) {
+        time = get_system_time();
+        unread = false;
+        status = -1;
+        id = -1;
+        end_of_sms = "%+*-/%";
+    };
+
+    void set_from(string _from) {
+        from = _from;
+    }
+
+    void set_to(string _to) {
+        to = _to;
+    }
+
+    void set_text(string _text) {
+        text = _text;
+    }
+
+    void set_unread(bool _unread) {
+        unread = _unread;
+    }
+
+    void set_status(int _status) {
+        status = _status;
+    }
+
+    void set_id(int _id) {
+        id = _id;
+    }
+
+    void set_isend(bool _isend) {
+        isend = _isend;
+    }
+
+    string get_from() {
+        return from;
+    }
+
+    string get_to() {
+        return to;
+    }
+
+    string get_time() {
+        return time;
+    }
+
+    string get_text() {
+        return text;
+    }
+
+    bool is_unread() {
+        return unread;
+    }
+
+    bool is_read() {
+        return !unread;
+    }
+
+    int get_id() {
+        return id;
+    }
+
+    int get_status() {
+        return status;
+    }
+
+    bool is_end() {
+        return isend;
+    }
+
+    int get_text_length() {
+        int ret = 0;
+        for(int i = 0; i < text.length(); i++) {
+            if(text[i] & 0x80 && (unsigned)text[i] >= 0) {
+                i += 2;
+            }
+            ret++;
+        }
+        return ret;
+    }
+
+    friend ostream& operator << (ostream &o, const sms &s) {
+        o << s.from << " " << s.to << " " << s.time << " " << s.unread << " " << s.status << " " << s.id << " " << s.isend << " " << s.text;
+        return o;
+    }
+
+    friend fstream& operator << (fstream &o, const sms &s) {
+        o << s.from << " " << s.to << " " << s.time << " " << s.unread << " " << s.status << " " << s.id << " " << s.isend << " " << s.text << " " << s.end_of_sms << endl;
+        return o;
+    }
+
+    friend istream& operator >> (istream &i, sms &s) {
+        i >> s.from >> s.to >> s.time >> s.unread >> s.status >> s.id >> s.isend >> s.text;
+        string c;
+        while(i >> c) {
+            if(c == s.end_of_sms) {
+                break;
+            }
+            s.text += " " + c;
+        }
+        return i;
+    }
+
+    friend fstream& operator >> (fstream &i, sms &s) {
+        i >> s.from >> s.to >> s.time >> s.unread >> s.status >> s.id >> s.isend >> s.text;
+        string c;
+        while(i >> c) {
+            if(c == s.end_of_sms) {
+                break;
+            }
+            s.text += " " + c;
+        }
+        return i;
+    }
+
+private:
+    string get_system_time() {
+        string ret("");
+        time_t timer;
+        struct tm* t_tm;
+        time(&timer);
+        t_tm = localtime(&timer);
+        ret += m_to_string((unsigned int)t_tm->tm_year + 1900);
+        ret += m_to_string((unsigned int)t_tm->tm_mon + 1);
+        ret += m_to_string((unsigned int)t_tm->tm_mday);
+        cout << ret << endl;
+//        printf("today is %4d%02d%02d%02d%02d%02d\n", t_tm.tm_year+1900,
+//               t_tm.tm_mon+1, t_tm.tm_mday, t_tm.tm_hour, t_tm.tm_min, t_tm.tm_sec);
+    }
+};
+
