@@ -1,0 +1,38 @@
+#ifndef SMS_FILE_H
+#define SMS_FILE_H
+#include"Contact.h"
+#include"Database.h"
+#include"Sms.h"
+#include <iostream>
+#include <fstream>
+#include <assert.h>
+using namespace std;
+
+class Sms_file
+{
+    public:
+
+        Sms findfile(int id) {
+            Sms ret;
+            fstream in("smsdatabase");
+            assert(in);
+            in.seekg(id * 300,ios::beg);
+            in >> ret;
+            in.close();
+            return ret;
+        }
+
+        bool insertfile(Sms ins,int id) {
+
+            fstream in("smsdatabase");
+            assert(in);
+            in.seekg(id * 300,ios::beg);
+            in << ins << endl;
+            in.close();
+            return true;
+        }
+
+
+};
+
+#endif // SMS_FILE_H
