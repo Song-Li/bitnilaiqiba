@@ -1,0 +1,310 @@
+#ifndef DATABASE_H
+#define DATABASE_H
+#define MAX 10000
+#include<string>
+#include<set>
+#include<map>
+#include"sms.h"
+#include"constact.h"
+#include"Sms_file.h"
+
+using namespace std;
+
+class Database
+{
+    private:
+        set<int> free_space;
+        set<int> occu_space;
+        map<string,Contact> ip_contact;//the map of Contacts map<ip,contact>
+        map<string,string> contact_map;//map<time,ip>
+
+    public:
+        Sms_file file;
+/****************************************
+Sms** search (str: Sc);//~~
+boolean delete (Contact: string);//~~
+boolean delete (con: Sms*);//~~
+boolean delete (id: int);//~~
+boolean add (dx: Sms);//~~
+Contact* getContactList();//~~
+Sms* getSmsList(con: Contact*);//~~
+Sms** getSearch(str: Sc);//
+boolean sending(dx: Sms);
+boolean setIp(Ip: String);//~~
+Contact get_contact();//~~
+*****************************************/
+    public:
+
+        Database(){
+            free_space.clear();
+            occu_space.clear();
+            for(int i = 0;i < MAX;++ i)free_space.insert(i);
+            comeon_ip_contact();
+            comeon_contact_map();
+            comeon_smss();
+        }
+
+
+        void update_contact(Sms ins,string ip){
+            Contact contact(ip,"未命名",ins.get_time());
+            ip_contact.insert(pair<string,Contact>(ip,contact));
+        }
+
+
+        void update_ip(string ip,Contact cont){
+            ip_contact.erase(ip);
+            ip_contact.insert(pair<string,Contact>(ip,cont));
+        }
+
+
+        bool Delete(int id){//删除单个短信
+
+            if(occu_space.find(id) == occu_space.end()) return false;//不存在该短信
+            free_space.insert(id);//插入空闲区域
+            occu_space.erase(id);
+            Sms tem_sms = file.findfile(id);//没写呢
+
+
+            string tem_ip = tem_sms.get_cont();//找到了该短信联系人的ip->tem_ip
+            Contact tem_con = ip_contact.find(tem_ip)->second;//获取该联系人
+            contact_map.erase(tem_con.get_time());
+
+
+            map<string,int> tem_sms_map = tem_con.Sms_self;//获得该联系人中的短信树
+            tem_con.set_time(tem_sms_map.begin()->first);//获取联系人短信树中最新短信时间赋值
+
+
+            update_ip(tem_ip,tem_con);//更新ip-联系人对
+            contact_map.insert(pair<string,string>(tem_con.get_time(),tem_ip));//更新联系人树
+            return true;
+        }
+
+
+        bool Delete(string ip){
+            map<string,Contact>::iterator its = ip_contact.find(ip);
+            if(its == ip_contact.end()) return false;
+            Contact tem_con = its->second;
+            map<string,int> sms_map = tem_con.Sms_self;//获得该联系人中的短信树
+
+            map<string,int>::iterator it;
+            for(it = sms_map.begin();it != sms_map.end();++ it) {
+                free_space.insert(it->second);
+                occu_space.erase(it->second);
+            }
+            //挨个标记短信空间空余
+
+            contact_map.erase(tem_con.get_time());//删除该联系人的短信树中的信息
+            return true;
+        }
+
+
+        bool Add(Sms ins){
+            set<int>::iterator it = free_space.begin();
+            int id = *it;
+            if(!file.insertfile(ins,id)) return false;
+            free_space.erase(it);
+            occu_space.insert(*it);
+            //插入短信并且删除空闲标记
+
+            string ip = ins.get_cont();
+            if(ip_contact.find(ip) == ip_contact.end()){
+                update_contact(ins,ip);
+            }
+            Contact contact = ip_contact.find(ip) -> second;
+            contact_map.erase(contact.get_time());//删除旧的记录
+            contact.Sms_self.insert(pair<string,int>(ins.get_time(),id));//更新联系人短信map
+            contact.set_time(contact.Sms_self.begin()->first);//更新联系人时间
+
+            update_ip(ip,contact);//更新ip索引
+            contact_map.insert(pair<string,string>(contact.get_time(),ip));//更新联系人树
+            return true;
+
+        }
+
+
+        map<string,string> get_contact_list() {
+            return contact_map;
+        }
+
+
+        map<string,int> get_sms_list(string ip) {
+            Contact tem_con = ip_contact.find(ip)->second;
+            return tem_con.Sms_self;
+        }
+
+
+        map<string,int> search(string str) {
+            map<string,int> ret;
+            set<int>::iterator it;
+            Sms tem_sms;
+            for(it = occu_space.begin();it != occu_space.end();++ it){
+                tem_sms = file.findfile(*it);
+                if(tem_sms.get_text().find(str) != tem_sms.get_text().npos){
+                    ret.insert(pair<string,int>(tem_sms.get_time(),*it));
+                }
+            }
+            cout << ret.size() << endl;
+            return ret;
+        }
+
+
+        bool Delete(map<string,int> sms_list){
+            map<string,int>::iterator it;
+            for(it = sms_list.begin();it != sms_list.end();++ it){
+                Delete(it->second);
+            }
+            return true;
+        }
+
+
+        bool set_ip(string ip,Contact cont){
+            update_ip(ip,cont);
+            return true;
+        }
+
+
+        Contact get_contact(string ip){
+            return ip_contact.find(ip)->second;
+        }
+
+
+        Sms get_sms(int id){
+            return file.findfile(id);
+        }
+
+
+        void change_name(string name,string ip){
+            Contact tem = ip_contact.find(ip)->second;
+            tem.set_name(name);
+            ip_contact.erase(ip);
+            ip_contact.insert(pair<string,Contact>(ip,tem));
+        }
+
+
+        bool shut_down() {
+            record_ip_contact();
+            record_contact_map();
+            record_smss();
+            return true;
+        }
+
+    private:
+
+        bool record_ip_contact(){
+            ofstream("ip_contact_database").close();
+            fstream in("ip_contact_database");
+            assert(in);
+            in.seekg(0,ios::beg);
+            in << ip_contact.size() << endl;
+            map<string,Contact>::iterator it;
+            for(it = ip_contact.begin();it != ip_contact.end();it ++){
+                in << it->first << " " << it->second;
+            }
+            in.close();
+            return true;
+        }
+
+
+        bool record_contact_map(){
+            ofstream("contact_map_database").close();
+            fstream in("contact_map_database");
+            assert(in);
+            in.seekg(0,ios::beg);
+            in << contact_map.size() << endl;
+            map<string,string>::iterator it;
+            for(it = contact_map.begin();it != contact_map.end();it ++){
+                in << it->first << " " << it->second << endl;
+            }
+            in.close();
+            return true;
+        }
+
+
+        bool record_smss(){
+            ofstream("smss_database").close();
+            fstream in("smss_database");
+            assert(in);
+            in.seekg(0,ios::beg);
+            in << contact_map.size() << endl;
+            map<string,string>::iterator it;
+            map<string,int>::iterator itc;
+            Contact cont;
+            string ip;
+            for(it = contact_map.begin();it !=contact_map.end();++ it){
+                ip = it->second;
+                cont = ip_contact.find(ip)->second;
+                in << cont.Sms_self.size() << " " << cont.get_ip() << endl;
+                for(itc = cont.Sms_self.begin();itc != cont.Sms_self.end();++ itc){
+                    in << itc->first << " " << itc->second << " " << endl;
+                }
+            }
+            return true;
+        }
+
+
+        bool comeon_ip_contact() {
+            fstream in("ip_contact_database");
+            assert(in);
+            in.seekg(0,ios::beg);
+            int num;
+            in >> num;
+            string ip;
+            Contact cont;
+            for(int i = 0;i < num;++ i) {
+                in >> ip >> cont;
+                ip_contact.insert(pair<string,Contact>(ip,cont));
+            }
+          //  cout << ip_contact.size() << ip_contact.begin()->second << endl;
+            in.close();
+            return true;
+        }
+
+
+        bool comeon_contact_map() {
+            fstream in("contact_map_database");
+            assert(in);
+            in.seekg(0,ios::beg);
+            int num;
+            in >> num;
+            string ip;
+            string time;
+            for(int i = 0;i < num;++ i) {
+                in >> time >> ip;
+                contact_map.insert(pair<string,string>(time,ip));
+            }
+            in.close();
+            return true;
+        }
+
+
+        bool comeon_smss() {
+            fstream in("smss_database");
+            assert(in);
+            in.seekg(0,ios::beg);
+            int num;
+            in >> num;
+            cout << num << endl;
+            string ip;
+            string tim;
+            int id;
+            int num0;
+            Contact cont;
+            for(int i = 0;i < num;++ i) {
+                in >> num0 >> ip;
+                cont = ((ip_contact.find(ip))->second);
+                ip_contact.erase(ip);
+                for(int j = 0;j < num0;++ j){
+                    in >> tim >> id;
+                    cont.Sms_self.insert(pair<string,int>(tim,id));
+                    occu_space.insert(id);
+                    free_space.erase(id);
+                }
+                ip_contact.insert(pair<string,Contact>(ip,cont));
+            }
+            in.close();
+            return true;
+        }
+
+};
+
+#endif // DATABASE_H
