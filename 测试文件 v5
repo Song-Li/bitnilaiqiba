@@ -1,0 +1,47 @@
+#include<fstream>
+#include<iostream>
+#include<string>
+#include<stdlib.h>
+#include"Sms.h"
+#include"Contact.h"
+#include"Database.h"
+using namespace std;
+
+int main() {
+    fstream in;
+    string file = "1";
+    in.open(file.c_str(), fstream::app | fstream::out | fstream::in);
+    if(!in) {
+        cout<<"error: unable to open file "<<file<<endl;
+        exit(1);
+    }
+    Sms s("wangxiaohu", "lixiaosong", "1120112078","你好我是一只仓  鼠", true);
+    Database database;
+    /*database.Add(s);
+    Sms a("lixiaosong", "wangxiaohu", "1120112080","你好我是也一只  仓鼠", true);
+    for(int i = 0;i < 100;++ i) {
+        Sms te("lisong","haha","110","你好我是一个人",true);
+        database.Add(te);
+    }*/
+   // database.Delete("1120112078");
+    map<string,int> seares = database.search("你好");
+    map<string,int>::iterator its;
+    for(its = seares.begin();its != seares.end();++ its){
+        cout << database.get_sms(its->second) << endl;
+    }
+    //database.Add(s);
+   /* map<string,string> c = database.get_contact_list();
+    map<string,string>::iterator it;
+    for(it = c.begin();it != c.end();++ it){
+        database.change_name("李松",it->second);
+        cout << database.get_contact(it->second) << endl;
+    }*/
+    map<string,int> smss = database.get_sms_list("110");
+    map<string,int>::iterator it;
+    for(it = smss.begin();it != smss.end();++ it){
+        cout << database.file.findfile(it->second) << endl;
+    }
+    in.close();
+    database.shut_down();
+    return 0;
+}
