@@ -203,7 +203,7 @@ public:
     }
 
 
-    void set_number(int n){
+    void set_number(string n){      //updata
         number = n;
     }
 
